@@ -25,6 +25,6 @@ RUN pip install --no-cache-dir torch torchvision --index-url https://download.py
 # copy app.py, best.pt and templates/ into the image
 COPY --chown=user . .
 
-# Railway tells the app which port to use through the PORT variable (8080 is the fallback when run locally)
+# Some hosts set the PORT variable. If it is missing the app uses 8080, which is the port we give Azure.
 EXPOSE 8080
 CMD exec gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --threads 2 --timeout 600 app:app

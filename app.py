@@ -33,9 +33,12 @@ OUTPUT_DIR = WORK_DIR / "outputs"
 
 CONF_THRESHOLD = float(os.environ.get("CONF_THRESHOLD", 0.35))  # ignore weaker detections
 IMG_SIZE = int(os.environ.get("IMG_SIZE", 416))                 # MUST match the image size used in training
-TARGET_FPS = 10        # frames analysed per second of video (keeps CPU hosting fast)
-MAX_FRAMES = 300       # about 30 seconds of video at TARGET_FPS
-MAX_SIDE = 960         # longest side of the output, in pixels
+IOU_THRESHOLD = float(os.environ.get("IOU_THRESHOLD", 0.5))     # boxes that overlap more than this are merged into one
+# The three settings below control speed. On a slow host (for example a free plan) set smaller values
+# in the host's environment variables, such as TARGET_FPS=3 and MAX_FRAMES=45.
+TARGET_FPS = float(os.environ.get("TARGET_FPS", 10))            # frames analysed per second of video
+MAX_FRAMES = int(os.environ.get("MAX_FRAMES", 300))             # at most this many analysed frames (300 = about 30 s at 10 fps)
+MAX_SIDE = int(os.environ.get("MAX_SIDE", 960))                 # longest side of the output, in pixels
 MAX_UPLOAD_MB = 100
 FILE_LIFETIME = 60 * 60  # delete results after one hour
 
@@ -170,7 +173,8 @@ def process_image(upload_path, job):
     if scale < 1.0:
         image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
 
-    result = model.predict(image, conf=CONF_THRESHOLD, imgsz=IMG_SIZE, verbose=False)[0]
+    result = model.predict(image, conf=CONF_THRESHOLD, iou=IOU_THRESHOLD, agnostic_nms=True,
+                           imgsz=IMG_SIZE, verbose=False)[0]
     best = draw_detections(image, result)
 
     out_path = OUTPUT_DIR / f"{job}.jpg"
@@ -222,7 +226,8 @@ def process_video(upload_path, job):
                 break
             if (frame.shape[1], frame.shape[0]) != (out_w, out_h):
                 frame = cv2.resize(frame, (out_w, out_h), interpolation=cv2.INTER_AREA)
-            result = model.predict(frame, conf=CONF_THRESHOLD, imgsz=IMG_SIZE, verbose=False)[0]
+            result = model.predict(frame, conf=CONF_THRESHOLD, iou=IOU_THRESHOLD, agnostic_nms=True,
+                                   imgsz=IMG_SIZE, verbose=False)[0]
             for label, conf in draw_detections(frame, result).items():
                 tally.setdefault(label, []).append(conf)
             writer.write(frame)
